@@ -1,0 +1,120 @@
+---
+title: "Report for homework"
+author: "Nurşen Töre"
+date: "3/15/2021"
+output: html_document
+---
+```{r libraries, echo=FALSE,message=FALSE}
+library(tidyr)
+library(magrittr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(readr)
+```
+
+# Loading and preprocessing the data
+
+```{r loading}
+fileurl="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileurl,'./activity.zip', mode = 'wb')
+unzip("activity.zip", exdir = getwd())
+dat<-read_csv("activity.csv")
+head(dat)
+```
+
+# What is mean total number of steps taken per day?
+
+Calculate the total number of steps taken per day
+
+```{r totwalk}
+totwalk<-dat%>%
+  group_by(date)%>%
+  summarize(totwalk=sum(steps,na.rm=TRUE))
+```
+
+Make a histogram of the total number of steps taken each day
+
+```{r histogram of totwalk}
+with(totwalk,hist(totwalk,main=" Total Walk Histogram",
+                  xlab="Total Steps",col="darkmagenta"))
+```
+
+Calculate and report the mean and median of the total number of steps taken per day
+
+```{r mean and median of totwalk}
+summ<-summary(totwalk$totwalk)
+summ["Median"]
+summ["Mean"]
+```
+# What is the average daily activity pattern?
+
+Make a time series plot  of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r time series average steps}
+avewalk<-dat%>%
+  group_by(interval)%>%
+  summarize(avesteps=mean(steps,na.rm=TRUE))
+with(avewalk,plot(interval,avesteps,type = "l",main="Average steps throughout day"))
+
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r max ave steps}
+avewalk%>%filter(avesteps==max(avesteps))%>%
+  select(interval)
+```
+
+# Imputing missing values
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r NAs}
+sum(is.na(dat))
+```
+Devise a strategy for filling in all of the missing values in the dataset.
+I will use the mean for that 5-minute interval.
+
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r remove nas}
+dat<-dat%>%group_by(interval)%>%
+  mutate(steps = replace_na(steps, mean(steps,na.rm=TRUE)))%>%
+  ungroup()
+```
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+```{r histogram for imputed table}
+totwalk<-dat%>%
+  group_by(date)%>%
+  summarize(totwalk=sum(steps,na.rm=TRUE))
+summ<-summary(totwalk$totwalk)
+summ["Median"]
+summ["Mean"]
+with(totwalk,hist(totwalk,main=" Total Walk Histogram",xlab="Total Steps",col="darkmagenta"))
+
+```
+
+# Are there differences in activity patterns between weekdays and weekends?
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+```{r create factor variable}
+weekavesteps<-dat%>%mutate(isweekday = case_when(
+    weekdays(date)=="Monday"  ~ "Weekday",
+    weekdays(date)=="Tuesday"  ~ "Weekday",
+    weekdays(date)=="Wednesday"  ~ "Weekday",
+    weekdays(date)=="Thursday"  ~ "Weekday",
+    weekdays(date)=="Friday"  ~ "Weekday",
+    weekdays(date)=="Saturday"  ~ "Weekend",
+    weekdays(date)=="Sunday"  ~ "Weekend"),
+    isweekday = factor(isweekday, levels=c("Weekday","Weekend")))%>%
+  group_by(isweekday,interval)%>%
+  summarize(avesteps=mean(steps,na.rm=TRUE))%>%ungroup()
+```
+
+Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+
+```{r create panel plot}
+p <- ggplot(weekavesteps, aes(interval, avesteps)) 
+p+ geom_line()+facet_wrap(~ isweekday)
+```
